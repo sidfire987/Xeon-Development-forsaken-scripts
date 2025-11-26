@@ -1,0 +1,497 @@
+--// Xeon Development Hub
+--// Reach + Auto Block + Aimbot + Auto Punch + Infinite Stamina + More
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "Xeon Development",
+    LoadingTitle = "Xeon Development",
+    LoadingSubtitle = "Loading advanced combat features...",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "XeonDevelopment",
+        FileName = "XeonConfig"
+    }
+})
+
+--// Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local lp = Players.LocalPlayer
+
+--// ==========================
+--// Reach Controls Tab
+--// ==========================
+local ReachTab = Window:CreateTab("Reach", 4483362458)
+ReachTab:CreateSection("Reach Controls")
+
+getgenv().RV = 20
+local ReachEnabled = false
+
+ReachTab:CreateToggle({
+    Name = "Enable Reach",
+    CurrentValue = false,
+    Flag = "ReachToggle",
+    Callback = function(Value)
+        ReachEnabled = Value
+        if ReachEnabled then
+            loadstring(game:HttpGet('https://raw.githubusercontent.com/broimnothim/gg/refs/heads/main/gg'))()
+            Rayfield:Notify({
+                Title = "Xeon Reach",
+                Content = "Reach Enabled!",
+                Duration = 3
+            })
+        else
+            getgenv().RV = 1
+            Rayfield:Notify({
+                Title = "Xeon Reach",
+                Content = "Reach Disabled!",
+                Duration = 3
+            })
+        end
+    end,
+})
+
+ReachTab:CreateSlider({
+    Name = "Reach Distance",
+    Range = {1, 120},
+    Increment = 1,
+    Suffix = " studs",
+    CurrentValue = 20,
+    Flag = "ReachSlider",
+    Callback = function(Value)
+        getgenv().RV = Value
+    end,
+})
+
+--// ==========================
+--// Combat Tab
+--// ==========================
+local CombatTab = Window:CreateTab("Combat", 4483362458)
+CombatTab:CreateSection("Auto Block | Aimbot | Auto Punch")
+
+-- Range Visuals Helper
+local function makeRangePart(name, color, size)
+    local part = Instance.new("Part")
+    part.Name = name
+    part.Shape = Enum.PartType.Ball
+    part.Material = Enum.Material.Neon
+    part.Color = color
+    part.Anchored = false
+    part.CanCollide = false
+    part.Transparency = 0.5
+    part.Size = size or Vector3.new(30, 30, 30)
+    part.Parent = workspace
+    local weld = Instance.new("WeldConstraint")
+    weld.Part0 = part
+    weld.Part1 = lp.Character:WaitForChild("HumanoidRootPart")
+    weld.Parent = part
+    return part
+end
+
+local AnimRangePart = makeRangePart("Xeon_AnimRange", Color3.fromRGB(0, 255, 0))
+local SoundRangePart = makeRangePart("Xeon_SoundRange", Color3.fromRGB(255, 0, 0))
+
+-- Animation Auto Block
+local AnimBlockEnabled = false
+local AnimDetectionRange = 15
+local BlockAnimations = {"slash", "attack", "heavyattack", "swing", "stab"}
+
+local function shouldBlockAnim(track, enemyPos)
+    local trackName = track.Name:lower()
+    local animId = tostring(track.AnimationId):lower()
+    for _, trigger in ipairs(BlockAnimations) do
+        if trackName:find(trigger) or animId:find(trigger) then
+            local myPos = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+            if myPos then
+                return (myPos.Position - enemyPos).Magnitude <= AnimDetectionRange
+            end
+        end
+    end
+    return false
+end
+
+local animConnection
+local function hookAnimations()
+    if animConnection then animConnection:Disconnect() end
+    local humanoid = lp.Character and lp.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        animConnection = humanoid.AnimationPlayed:Connect(function(track)
+            if AnimBlockEnabled and track.Parent and track.Parent:FindFirstChild("HumanoidRootPart") then
+                if shouldBlockAnim(track, track.Parent.HumanoidRootPart.Position) then
+                    -- Fire block (adapt to game remotes)
+                    -- Example: game:GetService("ReplicatedStorage").Block:FireServer()
+                    print("🛡️ Auto Block (Anim): " .. track.Name)
+                end
+            end
+        end)
+    end
+end
+
+CombatTab:CreateToggle({
+    Name = "Animation Auto Block",
+    CurrentValue = false,
+    Callback = function(Value)
+        AnimBlockEnabled = Value
+        if Value then
+            hookAnimations()
+            Rayfield:Notify({Title = "Xeon Combat", Content = "Animation Auto Block Enabled", Duration = 3})
+        end
+    end
+})
+
+CombatTab:CreateSlider({
+    Name = "Anim Detection Range",
+    Range = {5, 50},
+    Increment = 1,
+    CurrentValue = 15,
+    Callback = function(Value)
+        AnimDetectionRange = Value
+        if AnimRangePart then
+            AnimRangePart.Size = Vector3.new(Value * 2, Value * 2, Value * 2)
+        end
+    end
+})
+
+-- Sound Auto Block
+local SoundBlockEnabled = false
+local SoundDetectionRange = 15
+local BlockSounds = {"slash", "behead", "stab", "swing", "hit", "punch"}
+
+local soundConnection
+local function detectSounds()
+    if soundConnection then soundConnection:Disconnect() end
+    soundConnection = RunService.Heartbeat:Connect(function()
+        if not SoundBlockEnabled then return end
+        for _, snd in ipairs(workspace:GetDescendants()) do
+            if snd:IsA("Sound") and snd.IsPlaying and snd.Parent and snd.Parent:FindFirstChild("HumanoidRootPart") then
+                local sndName = snd.Name:lower()
+                for _, trigger in ipairs(BlockSounds) do
+                    if sndName:find(trigger) then
+                        local myPos = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+                        if myPos and (myPos.Position - snd.Parent.HumanoidRootPart.Position).Magnitude <= SoundDetectionRange then
+                            -- Fire block
+                            print("🛡️ Auto Block (Sound): " .. snd.Name)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+CombatTab:CreateToggle({
+    Name = "Sound Auto Block",
+    CurrentValue = false,
+    Callback = function(Value)
+        SoundBlockEnabled = Value
+        if Value then
+            detectSounds()
+            Rayfield:Notify({Title = "Xeon Combat", Content = "Sound Auto Block Enabled", Duration = 3})
+        else
+            if soundConnection then soundConnection:Disconnect() end
+        end
+    end
+})
+
+CombatTab:CreateSlider({
+    Name = "Sound Detection Range",
+    Range = {5, 50},
+    Increment = 1,
+    CurrentValue = 15,
+    Callback = function(Value)
+        SoundDetectionRange = Value
+        if SoundRangePart then
+            SoundRangePart.Size = Vector3.new(Value * 2, Value * 2, Value * 2)
+        end
+    end
+})
+
+-- Range Transparency
+CombatTab:CreateSlider({
+    Name = "Range Transparency",
+    Range = {0, 100},
+    Increment = 5,
+    Suffix = "%",
+    CurrentValue = 50,
+    Callback = function(Value)
+        local trans = Value / 100
+        if AnimRangePart then AnimRangePart.Transparency = trans end
+        if SoundRangePart then SoundRangePart.Transparency = trans end
+    end
+})
+
+-- Auto Punch
+local AutoPunchEnabled = false
+local PunchDelay = 0.3
+
+local punchLoop
+CombatTab:CreateToggle({
+    Name = "Auto Punch",
+    CurrentValue = false,
+    Callback = function(Value)
+        AutoPunchEnabled = Value
+        if Value then
+            punchLoop = task.spawn(function()
+                while AutoPunchEnabled do
+                    local tool = lp.Character and lp.Character:FindFirstChildOfClass("Tool")
+                    if tool then
+                        pcall(function() tool:Activate() end)
+                    end
+                    task.wait(PunchDelay)
+                end
+            end)
+        else
+            if punchLoop then task.cancel(punchLoop) end
+        end
+    end
+})
+
+CombatTab:CreateSlider({
+    Name = "Punch Delay",
+    Range = {0.05, 2},
+    Increment = 0.05,
+    Suffix = "s",
+    CurrentValue = 0.3,
+    Callback = function(Value)
+        PunchDelay = Value
+    end
+})
+
+-- Aimbot (Camera Lock)
+local AimbotEnabled = false
+local AimbotRange = 100
+local aimLoop
+
+local function getClosestTarget()
+    local char = lp.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+    local myPos = char.HumanoidRootPart.Position
+    local closest = nil
+    local closestDist = AimbotRange
+
+    -- Check players
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= lp and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (myPos - plr.Character.HumanoidRootPart.Position).Magnitude
+            if dist < closestDist then
+                closestDist = dist
+                closest = plr.Character.HumanoidRootPart
+            end
+        end
+    end
+
+    -- Check for game-specific folders like Survivors/Killers/Balls
+    local folders = {"Survivors", "Killers", "Balls"}
+    for _, folderName in ipairs(folders) do
+        local folder = workspace:FindFirstChild(folderName)
+        if folder then
+            for _, obj in ipairs(folder:GetChildren()) do
+                if obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Position") then
+                    local targetPart = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Position") or obj:FindFirstChild("RootPart")
+                    if targetPart then
+                        local dist = (myPos - targetPart.Position).Magnitude
+                        if dist < closestDist then
+                            closestDist = dist
+                            closest = targetPart
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return closest
+end
+
+CombatTab:CreateToggle({
+    Name = "Camera Aimbot",
+    CurrentValue = false,
+    Callback = function(Value)
+        AimbotEnabled = Value
+        if Value then
+            aimLoop = task.spawn(function()
+                while AimbotEnabled do
+                    local target = getClosestTarget()
+                    if target then
+                        local cam = workspace.CurrentCamera
+                        cam.CFrame = CFrame.new(cam.CFrame.Position, target.Position)
+                    end
+                    task.wait()
+                end
+            end)
+            Rayfield:Notify({Title = "Xeon Aimbot", Content = "Camera Lock Enabled", Duration = 3})
+        else
+            if aimLoop then task.cancel(aimLoop) end
+        end
+    end
+})
+
+CombatTab:CreateSlider({
+    Name = "Aimbot Range",
+    Range = {10, 500},
+    Increment = 10,
+    Suffix = " studs",
+    CurrentValue = 100,
+    Callback = function(Value)
+        AimbotRange = Value
+    end
+})
+
+--// ==========================
+--// Player Tab (Inf Stamina + More)
+--// ==========================
+local PlayerTab = Window:CreateTab("Player", 4483362458)
+PlayerTab:CreateSection("Infinite Stamina & Mods")
+
+-- Infinite Stamina
+local InfStaminaEnabled = false
+local stamLoop
+
+PlayerTab:CreateToggle({
+    Name = "Infinite Stamina",
+    CurrentValue = false,
+    Callback = function(Value)
+        InfStaminaEnabled = Value
+        if Value then
+            stamLoop = task.spawn(function()
+                while InfStaminaEnabled do
+                    task.wait(0.1)
+                    if lp.Character then
+                        -- Method 1: NumberValue in Character
+                        for _, v in ipairs(lp.Character:GetChildren()) do
+                            if v:IsA("NumberValue") and (v.Name:lower():find("stamina") or v.Name:lower():find("stam")) then
+                                v.Value = math.huge
+                            end
+                        end
+                        -- Method 2: Leaderstats
+                        local ls = lp:FindFirstChild("leaderstats")
+                        if ls then
+                            for _, v in ipairs(ls:GetChildren()) do
+                                if v:IsA("NumberValue") and (v.Name:lower():find("stamina") or v.Name:lower():find("stam")) then
+                                    v.Value = math.huge
+                                end
+                            end
+                        end
+                        -- Method 3: Attributes
+                        local attrs = {"Stamina", "stam", "Energy"}
+                        for _, attr in ipairs(attrs) do
+                            if lp.Character:GetAttribute(attr) ~= nil then
+                                lp.Character:SetAttribute(attr, math.huge)
+                            end
+                        end
+                        -- Method 4: Humanoid fatigue disable
+                        local hum = lp.Character:FindFirstChildOfClass("Humanoid")
+                        if hum then
+                            hum:ChangeState(Enum.HumanoidStateType.Physics)
+                        end
+                    end
+                end
+            end)
+            Rayfield:Notify({Title = "Xeon Player", Content = "Infinite Stamina Enabled", Duration = 3})
+        else
+            if stamLoop then task.cancel(stamLoop) end
+        end
+    end
+})
+
+-- Speed Boost
+local SpeedEnabled = false
+local speedValue = 50
+
+PlayerTab:CreateToggle({
+    Name = "Speed Boost",
+    CurrentValue = false,
+    Callback = function(Value)
+        SpeedEnabled = Value
+        local char = lp.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.WalkSpeed = Value and speedValue or 16
+        end
+    end
+})
+
+PlayerTab:CreateSlider({
+    Name = "Walk Speed",
+    Range = {16, 200},
+    Increment = 1,
+    Suffix = "",
+    CurrentValue = 50,
+    Callback = function(Value)
+        speedValue = Value
+        if SpeedEnabled then
+            local hum = lp.Character and lp.Character:FindFirstChildOfClass("Humanoid")
+            if hum then hum.WalkSpeed = Value end
+        end
+    end
+})
+
+-- Jump Boost
+local JumpEnabled = false
+local jumpValue = 100
+
+PlayerTab:CreateToggle({
+    Name = "Jump Boost",
+    CurrentValue = false,
+    Callback = function(Value)
+        JumpEnabled = Value
+        local char = lp.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.JumpPower = Value and jumpValue or 50
+            hum.JumpHeight = Value and 100 or 7.2
+        end
+    end
+})
+
+PlayerTab:CreateSlider({
+    Name = "Jump Power",
+    Range = {50, 200},
+    Increment = 1,
+    Suffix = "",
+    CurrentValue = 100,
+    Callback = function(Value)
+        jumpValue = Value
+        if JumpEnabled then
+            local hum = lp.Character and lp.Character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.JumpPower = Value
+                hum.JumpHeight = 100
+            end
+        end
+    end
+})
+
+-- Character Added Handler
+lp.CharacterAdded:Connect(function()
+    task.wait(1)
+    if SpeedEnabled then
+        local hum = lp.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.WalkSpeed = speedValue end
+    end
+    if JumpEnabled then
+        local hum = lp.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.JumpPower = jumpValue
+            hum.JumpHeight = 100
+        end
+    end
+    hookAnimations()  -- Rehook on respawn
+end)
+
+--// ==========================
+--// Cleanup on Destroy
+--// ==========================
+game:BindToClose(function()
+    if aimLoop then task.cancel(aimLoop) end
+    if punchLoop then task.cancel(punchLoop) end
+    if stamLoop then task.cancel(stamLoop) end
+end)
+
+Rayfield:Notify({
+    Title = "Xeon Development Loaded!",
+    Content = "All features ready. Dominate!",
+    Duration = 5,
+    Image = 4483362458
+})
